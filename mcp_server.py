@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "some_secret_key")
-
+os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 # OAuth2 setup
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 CLIENT_SECRETS_FILE = "credentials.json"

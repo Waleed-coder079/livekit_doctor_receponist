@@ -241,6 +241,9 @@ class DoctorReceptionist(Agent):
                     # attach link if present
                     if "htmlLink" in data:
                         appointment["calendar_link"] = data["htmlLink"]
+                    if "eventId" in data:
+                        appointment["calendar_event_id"] = data["eventId"]
+
                 except Exception:
                     pass
             else:
@@ -283,6 +286,66 @@ class DoctorReceptionist(Agent):
             summary += line + "\n"
         return summary.strip()
 
+    @function_tool
+    async def cancel_appointment(
+        self,
+        context: RunContext,
+        appointment_id: str = "",
+        patient_name: str = "",
+        date: str = ""
+    ) -> str:
+ 
+    # Normalize input
+        appointment_id = appointment_id.strip().upper()
+        patient_name = patient_name.strip().lower()
+        date = date.strip()
+
+        if not appointment_id and not (patient_name and date):
+            return (
+            "To cancel an appointment, please provide either:\n"
+            "- Appointment ID\n"
+            "OR\n"
+            "- Patient name and date (YYYY-MM-DD)"
+        )
+
+    # Find appointment
+        appt_to_cancel = None
+        for appt in self.appointments:
+            if appointment_id and appt["id"] == appointment_id:
+                appt_to_cancel = appt
+                break
+            if patient_name and date:
+                if appt["patient_name"].lower() == patient_name and appt["date"] == date:
+                    appt_to_cancel = appt
+                    break
+
+        if not appt_to_cancel:
+            return "❌ No matching appointment found."
+
+    # ------------------------
+    # Cancel on Google Calendar
+    # ------------------------
+        try:
+            if "calendar_event_id" in appt_to_cancel:
+                requests.post(
+                    GOOGLE_MCP_URL.replace("create-event", "delete-event"),
+                    json={"eventId": appt_to_cancel.get("calendar_event_id", "")},
+                    timeout=8
+                )
+        except Exception as e:
+            print("Calendar cancel failed:", str(e))
+
+    # Remove local appointment
+        self.appointments.remove(appt_to_cancel)
+
+        return (
+            f"🗑️ Appointment cancelled successfully!\n"
+            f"Appointment ID: {appt_to_cancel['id']}\n"
+            f"Patient: {appt_to_cancel['patient_name']}\n"
+            f"Date: {appt_to_cancel['date']}\n"
+            f"City: {appt_to_cancel['city']}\n"
+            f"Slot: {appt_to_cancel['slot']}"
+        )
 
 # ---------------------- ENTRY POINT ----------------------
 async def entrypoint(ctx: agents.JobContext):

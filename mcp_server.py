@@ -132,6 +132,27 @@ def create_event():
         "htmlLink": result["htmlLink"]
     })
 
+@app.route("/delete-event", methods=["POST"])
+def delete_event():
+    creds = load_credentials()
+    if not creds:
+        return jsonify({"error": "Auth missing. Please run /authorize"}), 401
+
+    service = googleapiclient.discovery.build("calendar", "v3", credentials=creds)
+    data = request.get_json()
+
+    event_id = data.get("eventId")
+    if not event_id:
+        return jsonify({"error": "Missing eventId"}), 400
+
+    try:
+        service.events().delete(calendarId="primary", eventId=event_id).execute()
+        return jsonify({"status": "Event deleted"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)

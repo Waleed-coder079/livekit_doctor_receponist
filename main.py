@@ -1,3 +1,4 @@
+
 # main.py (Supabase-backed)
 from dotenv import load_dotenv
 from livekit import agents
@@ -267,7 +268,95 @@ class DoctorReceptionist(Agent):
 
         return "\n".join(lines)
 
-    # ---------------------- Cancel Appointment ----------------------
+    # ---------------------- Update Appointment ----------------------
+
+    @function_tool
+    async def update_appointment(
+        self,
+        context: RunContext,
+        appointment_id: str = None,
+        patient_name: str = None,
+        previous_slot: str = None,
+        previous_date: str = None,
+        new_slot: str = None,
+        new_date: str = None,
+        new_patient_name: str = None,
+    ) -> dict:
+        """
+        Update an existing appointment.
+        - User can provide appointment_id OR (patient_name + previous_slot + previous_date)
+        - User may update time, date, or patient name
+        - If time/date changes → check availability
+        - Automatically cancels old appointment and books a new one
+        """
+
+        import uuid
+
+        # 1. Locate appointment
+        query = supabase.table("appointments").select("*")
+
+        if appointment_id:
+            query = query.eq("id", appointment_id)
+        else:
+            if not (patient_name and previous_slot and previous_date):
+                return {"error": "Provide either appointment_id OR patient_name + previous_slot + previous_date"}
+            query = (
+                query.eq("patient_name", patient_name)
+                .eq("slot", previous_slot)
+                .eq("date", previous_date)
+            )
+
+        old = query.execute()
+        if not old.data:
+            return {"error": "No appointment found with provided details."}
+
+        old_app = old.data[0]
+
+        # 2. New values (fallback to previous)
+        final_slot = new_slot if new_slot else old_app["slot"]
+        final_date = new_date if new_date else old_app["date"]
+        final_name = new_patient_name if new_patient_name else old_app["patient_name"]
+
+        # 3. Check slot availability
+        if final_slot != old_app["slot"] or final_date != old_app["date"]:
+            conflict = (
+                supabase.table("appointments")
+                .select("id")
+                .eq("date", final_date)
+                .eq("slot", final_slot)
+                .execute()
+            )
+            if conflict.data:
+                return {"error": f"The slot {final_slot} on {final_date} is already booked."}
+
+        # 4. Delete old appointment
+        supabase.table("appointments").delete().eq("id", old_app["id"]).execute()
+
+        # 5. Create new appointment with updated data
+        new_id = f"APT-UPD-{uuid.uuid4().hex[:6].upper()}"
+
+        updated = {
+            "id": new_id,
+            "patient_name": final_name,
+            "patient_id": old_app.get("patient_id"),
+            "city": old_app.get("city"),
+            "date": final_date,
+            "slot": final_slot,
+            "notes": old_app.get("notes"),
+            "calendar_event_id": old_app.get("calendar_event_id"),
+            "calendar_link": old_app.get("calendar_link"),
+        }
+
+        supabase.table("appointments").insert(updated).execute()
+
+        return {
+            "message": "Appointment updated successfully.",
+            "old_id": old_app["id"],
+            "new_id": new_id,
+            "updated_appointment": updated,
+        }
+
+# ---------------------- Cancel Appointment ----------------------
 
     @function_tool
     async def cancel_appointment(self, context: RunContext, appointment_id: str):
@@ -315,3 +404,4 @@ async def entrypoint(ctx: agents.JobContext):
 
 if __name__ == "__main__":
     agents.cli.run_app(agents.WorkerOptions(entrypoint_fnc=entrypoint))
+

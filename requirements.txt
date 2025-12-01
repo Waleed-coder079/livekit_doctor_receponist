@@ -1,0 +1,38 @@
+# Core environment
+python-dotenv
+
+# LiveKit voice agent stack
+livekit-agents
+livekit-plugins-deepgram
+livekit-plugins-silero
+livekit-plugins-elevenlabs
+livekit-plugins-google
+websockets
+
+# LLM/observability
+langfuse
+
+# Web servers
+fastapi
+uvicorn
+flask
+
+# Voice STT/TTS providers
+deepgram-sdk
+elevenlabs
+
+# VAD (Silero) runtime deps
+torch
+numpy
+
+# Timezone database for Windows (zoneinfo)
+tzdata
+
+# Supabase + utilities
+supabase
+requests
+
+# Google Calendar (MCP server)
+google-auth
+google-auth-oauthlib
+google-api-python-client

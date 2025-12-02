@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 
 # Resolve venv Python if available, otherwise fall back to 'python'
 try {
-    $venvPythonPath = Join-Path $PSScriptRoot "..\venv\Scripts\python.exe"
+    $venvPythonPath = Join-Path $PSScriptRoot "venv\Scripts\python.exe"
     if (Test-Path $venvPythonPath) {
         $python = (Resolve-Path $venvPythonPath).Path
     } else {
